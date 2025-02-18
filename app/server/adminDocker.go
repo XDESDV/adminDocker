@@ -13,13 +13,14 @@ var server *AdminDocker
 
 // AdminDocker Structure
 type AdminDocker struct {
-	Router    *gin.Engine
-	Version   string
-	Port      string
-	TokenKey  string
-	Origin    string
-	LogFormat string
-	Mode      string
+	Router     *gin.Engine
+	Version    string
+	Port       string
+	TokenKey   string
+	Origin     string
+	LogFormat  string
+	Mode       string
+	DockerFake bool
 }
 
 func (a *AdminDocker) ParseParameters() {
@@ -29,6 +30,7 @@ func (a *AdminDocker) ParseParameters() {
 	a.TokenKey = os.Getenv("TOKEN_KEY")
 	a.Origin = os.Getenv("ALLOW_ORIGIN")
 	a.Mode = os.Getenv("MODE")
+	a.DockerFake = os.Getenv("DOCKER_FAKE") == "TRUE"
 }
 
 // ListenAndServe listens on the TCP network address addr and then calls Serve with handler to handle requests on incoming connections.

@@ -24,12 +24,16 @@ Un serveur API REST en Go permettant de gérer les conteneurs Docker.
 
 **Objectif**
 
-Créer un handler Go qui liste tous les conteneurs en cours d'exécution avec leur nom, ID et statut.
+Créer un handler Go qui liste tous les conteneurs en cours d'exécution avec les informations de types.Container de ```"github.com/docker/docker/api/types"```.
 ```
 conteneur {
-  ID string
-  Name string
-  Status string
+      Id string
+      Names []string
+      Image string
+      ImageID string
+      Command string
+      Created int
+      ...
 }
 ```
 
@@ -37,27 +41,87 @@ conteneur {
 
 Utiliser le package "github.com/docker/docker/client" pour interagir avec Docker.
 
+Utiliser les réponses API standardisées
+
+**Modeles**
+```
+// WSResponse is the standardized response format.
+// - Meta : *Pre-formatted response header returning data.
+// - Data : *Data or list of data returned.
+type WSResponse struct {
+	Meta MetaResponse `json:"meta"`
+	Data interface{}  `json:"data"`
+}
+
+// MetaResponse is a valid response header
+// - ObjectName : *Information returned to the front end to let it know what format it is receiving.*
+// - TotalCount : *Total number of records the request can return.
+// - Offset : *Starting position of the list of records returned to the Front.
+// - Count : *Number of records returned to the Front.
+type MetaResponse struct {
+	ObjectName string `json:"object_name"`
+	TotalCount int    `json:"total_count"`
+	Offset     int    `json:"offSet"`
+	Count      int    `json:"count"`
+}
+```
+
 Afficher la liste des conteneurs actifs.
 
 Créer un endpoint :
 
 ```GET /dockers ``` pour lister les dockers actifs.
 
-exemple de sortie
-
+**exemple de sortie**
 ```
-[
-  {
-    ID : 9d8a5f1b2a3e, 
-    Name : nginx-container,  
-    Statut : Up 3 minutes,
-  }, 
-  {
-    ID : 4d8a5e1b2a6d, 
-    Name : nginx-container2,  
-    Statut : Up 6 minutes,
-  },
-]
+meta: {
+  ObjectName: "dockers",
+  TotalCount: 2,
+  Offset: 0
+  Count: 2
+},
+data: {
+  [
+    {
+      "Id": "123456789abc",
+      "Names": [
+        "/fake-nginx"
+      ],
+      "Image": "",
+      "ImageID": "",
+      "Command": "",
+      "Created": 0,
+      "Ports": null,
+      "Labels": null,
+      "State": "running",
+      "Status": "Up 10 minutes",
+      "HostConfig": {
+        
+      },
+      "NetworkSettings": null,
+      "Mounts": null
+    },
+    {
+      "Id": "987654321xyz",
+      "Names": [
+        "/fake-redis"
+      ],
+      "Image": "",
+      "ImageID": "",
+      "Command": "",
+      "Created": 0,
+      "Ports": null,
+      "Labels": null,
+      "State": "exited",
+      "Status": "Exited (0) 5 minutes ago",
+      "HostConfig": {
+        
+      },
+      "NetworkSettings": null,
+      "Mounts": null
+    }
+  ]
+}
 ```
 
 ### Arrêter et démarrer un conteneur Docker avec Go

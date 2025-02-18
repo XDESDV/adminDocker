@@ -1,6 +1,7 @@
 package main
 
 import (
+	"adminDocker/app/routes/dockers"
 	"adminDocker/app/server"
 	"os"
 
@@ -36,8 +37,10 @@ func newAdminDockerServer() error {
 	// setup router
 	srv.Router = setupRouter()
 
-	// api.SetupRouter(srv.Router)
-
+	err := dockers.SetupRouter(srv.Router, &log.Logger)
+	if err != nil {
+		return err
+	}
 	server.SetServer(srv)
 
 	return nil
