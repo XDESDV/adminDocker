@@ -5,6 +5,8 @@ import (
 	"adminDocker/app/models"
 	"adminDocker/app/services"
 	"errors"
+	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -81,4 +83,126 @@ func (c *Container) Get(ctx *gin.Context) {
 	}
 
 	common.SendResponse(ctx, http.StatusOK, response)
+}
+
+// Stop controller to stop a container
+func (c *Container) Stop(ctx *gin.Context) {
+	var params models.QueryParams
+
+	params.Parse(ctx)
+
+	messageTypes := &models.MessageTypes{
+		OK:                  "container.Start.Found",
+		InternalServerError: "container.Start.Error",
+	}
+
+	containerID := ctx.Param("id")
+
+	Ok, err := c.containerService.StopDocker(containerID)
+	if err != nil {
+		common.SendResponse(ctx, http.StatusInternalServerError, models.KnownError(http.StatusInternalServerError, messageTypes.InternalServerError, err))
+	}
+	if !Ok {
+		common.SendResponse(ctx, http.StatusInternalServerError, "The container wasn't stopped")
+	}
+	common.SendResponse(ctx, http.StatusOK, "The container was stopped")
+}
+
+// Start controller to start a container
+func (c *Container) Start(ctx *gin.Context) {
+	var params models.QueryParams
+
+	params.Parse(ctx)
+
+	messageTypes := &models.MessageTypes{
+		OK:                  "container.Start.Found",
+		InternalServerError: "container.Start.Error",
+	}
+
+	containerID := ctx.Param("id")
+
+	Ok, err := c.containerService.StartDocker(containerID)
+	if err != nil {
+		common.SendResponse(ctx, http.StatusInternalServerError, models.KnownError(http.StatusInternalServerError, messageTypes.InternalServerError, err))
+	}
+	if !Ok {
+		common.SendResponse(ctx, http.StatusInternalServerError, "The container wasn't started")
+	}
+	common.SendResponse(ctx, http.StatusOK, "The container was started")
+}
+
+// Create controller to create a container
+func (c *Container) Create(ctx *gin.Context) {
+	// Get the name of the image from param
+	containerName := ctx.Param("name")
+
+	// Structure the request
+	var req struct {
+		Image   string   `json:"image" binding:"required"`
+		Command []string `json:"command"`
+		Ports   []string `json:"ports"`
+	}
+
+	// Handle request error
+	if err := ctx.ShouldBindJSON(&req); err != nil {
+		ctx.JSON(http.StatusBadRequest, gin.H{"error": "Invalid request format"})
+		return
+	}
+
+	// Pull Image if not exists
+	if err := c.containerService.PullImage(req.Image); err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Create container
+	containerID, err := c.containerService.CreateDocker(containerName, req.Image, req.Command, req.Ports)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Start container
+	ok, err := c.containerService.StartDocker(containerID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+	if !ok {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to start container"})
+		return
+	}
+
+	// Stream logs
+	ctx.Stream(func(w io.Writer) bool {
+		err := c.containerService.StreamContainerLogs(containerID, w)
+		return err == nil
+	})
+
+}
+
+// Get Container Resources
+func (c *Container) GetContainerResources(ctx *gin.Context) {
+	containerID := ctx.Param("id")
+
+	stats, err := c.containerService.GetContainerStats(containerID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Get the name of the container
+	containerInfo, err := c.containerService.GetContainerName(containerID)
+	if err != nil {
+		ctx.JSON(http.StatusInternalServerError, gin.H{"error": err.Error()})
+		return
+	}
+
+	// Formater la sortie
+	response := fmt.Sprintf(
+		"Conteneur : %s\nCPU : %.2f%%\nMémoire : %s / %s",
+		containerInfo.Name, stats.CPUPercent, stats.MemoryUsage, stats.MemoryLimit,
+	)
+
+	ctx.String(http.StatusOK, response)
 }

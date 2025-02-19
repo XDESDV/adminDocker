@@ -21,6 +21,10 @@ func SetupRouter(g *gin.Engine, logs *zerolog.Logger) error {
 		dockersV1 := v1.Group("/dockers")
 		{
 			dockersV1.GET("", containerController.Get)
+			dockersV1.POST("/stop/:id", containerController.Stop)
+			dockersV1.POST("/start/:id", containerController.Start)
+			dockersV1.PUT("/create/:name", containerController.Create)
+			dockersV1.GET("/:id/ressources", containerController.GetContainerResources)
 		}
 	}
 
