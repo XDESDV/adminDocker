@@ -6,7 +6,6 @@ import (
 	"adminDocker/app/services"
 	"errors"
 	"fmt"
-	"io"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -173,11 +172,17 @@ func (c *Container) Create(ctx *gin.Context) {
 		return
 	}
 
-	// Stream logs
-	ctx.Stream(func(w io.Writer) bool {
-		err := c.containerService.StreamContainerLogs(containerID, w)
-		return err == nil
-	})
+	// Send response headers
+	ctx.Writer.Header().Set("Content-Type", "text/plain")
+	ctx.Writer.WriteHeader(http.StatusOK)
+
+	// Display container information
+	fmt.Fprintf(ctx.Writer, "Starting Nginx container...\n")
+	fmt.Fprintf(ctx.Writer, "Container ID: %s\n", containerID)
+	fmt.Fprintf(ctx.Writer, "Logs:\n")
+
+	// Stream logs in real-time
+	c.containerService.StreamContainerLogs(containerID, ctx.Writer)
 
 }
 

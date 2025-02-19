@@ -2,7 +2,6 @@ package services
 
 import (
 	"adminDocker/app/server"
-	"bufio"
 	"context"
 	"fmt"
 	"github.com/docker/docker/api/types"
@@ -151,19 +150,25 @@ func (c *Container) CreateDocker(containerName, imageName string, command []stri
 }
 
 // Stream container's logs
-func (c *Container) StreamContainerLogs(containerID string, output io.Writer) error {
-	logs, err := c.clientDocker.ContainerLogs(context.Background(), containerID, container.LogsOptions{})
+func (c *Container) StreamContainerLogs(containerID string, w io.Writer) error {
+	ctx := context.Background()
+
+	options := container.LogsOptions{
+		ShowStdout: true,
+		ShowStderr: true,
+		Follow:     true,
+	}
+
+	// Get logs from the container
+	logsReader, err := c.clientDocker.ContainerLogs(ctx, containerID, options)
 	if err != nil {
-		return fmt.Errorf("failed to retrieve logs: %w", err)
+		return fmt.Errorf("failed to get logs: %w", err)
 	}
-	defer logs.Close()
+	defer logsReader.Close()
 
-	scanner := bufio.NewScanner(logs)
-	for scanner.Scan() {
-		fmt.Fprintln(output, scanner.Text())
-	}
-
-	return scanner.Err()
+	// Stream logs to the response
+	_, err = io.Copy(w, logsReader)
+	return err
 }
 
 // GetContainerStats gets the CPU/RAM stats  of a container
